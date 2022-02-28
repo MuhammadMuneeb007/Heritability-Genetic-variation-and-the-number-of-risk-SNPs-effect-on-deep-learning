@@ -1,0 +1,310 @@
+Step 2 - GetResults
+===============================
+ 
+
+Code execution 
+------------------------
+
+.. code-block:: console
+
+   python GetResults.py (DirectoryName in which files will be stored)
+   For example: python GetResults.py 1
+    
+
+Actual Code in GetResults
+----------------------------
+
+.. code-block:: console
+
+   import pandas as pd
+   import sys
+   import os
+   import glob
+   import shutil
+   import sys
+   import numpy as np
+   import scipy as sp
+   from scipy import stats
+   import matplotlib.pyplot as plt
+   from sklearn.metrics import roc_auc_score
+   import math
+   import matplotlib.pyplot as plt
+   import numpy as np
+   import scipy.stats as stats
+   import math
+   import matplotlib.pyplot as plt
+   from scipy.stats import norm
+   import statistics
+   import seaborn as sns
+
+
+   direc = sys.argv[1]
+
+ 
+   def NormalizeData(data):
+      return (data - np.min(data)) / (np.max(data) - np.min(data))
+   def calculateAUCPRScice(direc):
+      best = pd.read_csv(direc+os.sep+"result"+os.sep+"PRScice_PRS.best",sep="\s+")
+      pheno = pd.read_csv(direc+os.sep+"/test/YRI.pheno",sep="\s+")
+   
+      
+   
+      temp = NormalizeData(best["PRS"].values)
+      best["PRS"] = NormalizeData(np.array(best["PRS"].values))
+      
+      best["PRS"].values[best["PRS"] >=0.5] = 1
+      best["PRS"].values[best["PRS"] < 0.5] = 0
+
+      
+      print("AUC",roc_auc_score(np.array(best["PRS"].values), np.array(pheno['phenotype'].values)))
+      a= best["PRS"].values
+      b = pheno['phenotype'].values
+      accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)
+      print("Accuracy",accuracy)
+      return temp, roc_auc_score(np.array(best["PRS"].values), np.array(pheno['phenotype'].values))
+
+
+   def calculateAUCPlink(direc):
+      pheno = pd.read_csv(direc+os.sep+"/test/YRI.pheno",sep="\s+")
+      files = os.listdir(direc+os.sep+"files")
+      maxxacc=0
+      maxauc = 0
+      profile = ""
+      temp = []
+      for loop in files:
+
+         if ".profile" in loop: 
+            # Find AUC for all profiles.  
+            best = pd.read_csv(direc+os.sep+"files"+os.sep+loop,sep="\s+")
+            best["SCORE"] = NormalizeData(best["SCORE"].values)
+            best["SCORE"].values[best["SCORE"] >=0.5] = 1
+            best["SCORE"].values[best["SCORE"] < 0.5] = 0
+            
+            if maxauc<roc_auc_score(best["SCORE"].values, pheno['phenotype'].values):
+               maxauc = roc_auc_score(best["SCORE"].values, pheno['phenotype'].values)
+               temp = NormalizeData(pd.read_csv(direc+os.sep+"files"+os.sep+loop,sep="\s+")["SCORE"].values)
+               profile = loop
+               a= best["SCORE"].values
+               b = pheno['phenotype'].values
+               accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)
+               maxxacc = accuracy
+      print("AUC",maxauc)
+      print("Accuracy",maxxacc)
+      print("Profile", profile)
+      return temp,maxauc
+
+   def calculateAUClasso(direc):
+      best = pd.read_csv(direc+os.sep+"result"+os.sep+"test.txt",sep="\s+",header=None)
+      pheno = pd.read_csv(direc+os.sep+"/test/YRI.pheno",sep="\s+")
+   
+   
+      best[0] = NormalizeData(best[0].values)
+      temp = NormalizeData(best[0].values)
+      best[0].values[best[0] >=0.5] = 1
+      best[0].values[best[0] < 0.5] = 0
+
+      print("AUC",roc_auc_score(best[0].values, pheno['phenotype'].values))
+      a= best[0].values
+      b = pheno['phenotype'].values
+      accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)
+      print("Accuracy",accuracy)
+      return temp, AUC
+
+
+   def calculateAUCMachineLearning(direc):
+      pheno = pd.read_csv(direc+os.sep+"/test/YRI.pheno",sep="\s+")
+      
+      files = os.listdir(direc)
+      maxxacc=0
+      maxauc = 0
+      profile = ""
+      temp = []
+      for loop in files:
+         # Find AUC for all p-values and machine learning.
+         if "pv_" in loop:      
+            best = pd.read_csv(direc+os.sep+loop+os.sep+"ML_probability",sep="\s+",header=None)
+            #plt.hist(best["PRS"].values)
+            #plt.show()
+         
+            #best["PRS"].values[best["PRS"] >= sum(best["PRS"].values)/len(best["PRS"].values)] = 1
+            #best["PRS"].values[best["PRS"] < sum(best["PRS"].values)/len(best["PRS"].values)] = 0
+            best[0] = NormalizeData(best[0].values)
+         
+            best[0].values[best[0] >=0.5] = 1
+            best[0].values[best[0] < 0.5] = 0
+            
+            if maxauc<roc_auc_score(best[0].values, pheno['phenotype'].values):
+               maxauc = roc_auc_score(best[0].values, pheno['phenotype'].values)
+               temp = NormalizeData(pd.read_csv(direc+os.sep+loop+os.sep+"ML_probability",sep="\s+",header=None)[0].values)
+               profile = loop
+               a= best[0].values
+               b = pheno['phenotype'].values
+               accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)
+               maxxacc = accuracy
+      print("AUC",maxauc)
+      print("Accuracy",maxxacc)
+      print("Profile", profile)
+      return temp, maxauc
+   
+   x,y1 = calculateAUCPRScice(direc)
+   n_samples = len(x)
+   rng = np.random.RandomState(0)
+   x = sns.distplot(x,hist=False,color='y')
+
+
+   x,y2 = calculateAUCPlink(direc)
+   x = sns.distplot(x,hist=True,color = 'r')
+
+   x,y3 = calculateAUClasso(direc)
+   x = sns.distplot(x, hist=True,color='g')
+
+
+   x,y4 = calculateAUCMachineLearning(direc)
+   x = sns.distplot(x, hist=True,color='b')
+
+   aucs = [y1,y2,y3,y4]
+   textfile = open("Results.txt", "a+")
+
+   # Write accuracy for each tool in a file.
+   for element in aucs:
+      textfile.write(str(element))
+   textfile.write('\n')
+   textfile.close()
+
+
+  
+
+Helper Functions plotting
+----------------------------------------
+
+.. code-block:: console  
+
+   import pandas as pd 
+   import numpy as np
+   import matplotlib.pyplot as plt 
+   from decimal import *
+
+   # Read the result file
+   data = pd.read_csv("Resultsparameter.txt",header=None)
+   
+   # Read the parameter file
+   chart = pd.read_csv("parameters2.csv")
+   
+   from statistics import mean
+   
+   # Temporary variable to store the results separately
+   tempprsice = []
+   tempplink = []
+   templasso = []
+   tempml = []
+   prsice = []
+   plink = []
+   lasso = []
+   ml = []
+
+
+   for ind in data.index:
+      if len(data[0][ind])>20:    
+         # Remove lines if length is less than 20 because it contains the parameter values.
+         print(data[0][ind].split(".")[1:])
+         tempprsice.append(float(data[0][ind].split(".")[1:][0][:2])/100)
+         tempplink.append(float(data[0][ind].split(".")[1:][1][:2])/100)
+         templasso.append(float(data[0][ind].split(".")[1:][2][:2])/100)
+         tempml.append(float(data[0][ind].split(".")[1:][3][:2])/100)
+         print(tempml)
+      else:
+         snp = data[0][ind].split(".")[0]
+         if len(tempml)>0:
+            prsice.append(mean(tempprsice))
+            plink.append(mean(tempplink))
+            lasso.append(mean(templasso))
+            ml.append(mean(tempml))
+            tempprsice = []
+            tempplink = []
+            templasso = []
+            tempml = []
+   prsice.append(mean(tempprsice))
+   plink.append(mean(tempplink))
+   lasso.append(mean(templasso))
+   ml.append(mean(tempml))
+   tempprsice = []
+   tempplink = []
+   templasso = []
+   tempml = []
+
+   prsice = np.array(prsice)
+   plink = np.array(plink)
+   lasso = np.array(lasso)
+   ml = np.array(ml)
+
+   del chart["Iteration"]
+
+   chart["Machine learning AUC"] = ml
+   chart["PRSice AUC"] = prsice
+   chart["Plink AUC"] = plink
+   chart["Lasso AUC"] = lasso
+   chart.rename({'cNrSNP': 'Number of risk SNPs', 'Heritibility': 'Heritability','genVar':'Genetic Variation'}, axis=1, inplace=True)
+   
+   # This file contains the parameter values and tool's AUC at each low. AUC for each tool is an average of 5 iterations.
+   chart.to_csv("finalparameter2.csv",index=False)
+
+
+ 
+Helper Functions plotting 2 
+------------------------------
+
+.. code-block:: console 
+
+
+   import pandas as pd 
+   import numpy as np
+   import matplotlib
+   import matplotlib.pyplot as plt 
+   from decimal import *
+   font = {'family' : 'normal',
+         'size'   : 15}
+   matplotlib.rc('font', **font)
+
+   matplotlib.rc('xtick', labelsize=30) 
+   matplotlib.rc('ytick', labelsize=30)
+
+   from scipy.ndimage.filters import gaussian_filter1d
+   chart1 = pd.read_csv("finalparameter1.csv")
+   chart2 = pd.read_csv("finalparameter2.csv")
+   chart3 = pd.read_csv("finalparameter3.csv")
+   chart4 = pd.read_csv("finalparameter4.csv")
+
+   smooth= 2
+   plt.plot(range(1,len(chart1["Machine learning AUC"].values)+1),gaussian_filter1d(chart1["Machine learning AUC"].values,sigma=smooth),"g--",color="blue",label='ML, G = 0.9')
+   plt.plot(range(1,len(chart1["Machine learning AUC"].values)+1),gaussian_filter1d(chart1["PRSice AUC"].values,sigma=smooth),"g-.",color="blue", label='PRSice, G = 0.9')
+   plt.plot(range(1,len(chart1["Machine learning AUC"].values)+1),gaussian_filter1d(chart1["Plink AUC"].values,sigma=smooth),"g:",color="blue",label='Plink, G = 0.9')
+   plt.plot(range(1,len(chart1["Machine learning AUC"].values)+1),gaussian_filter1d(chart1["Lasso AUC"].values,sigma=smooth),color="blue", label='Lasso, G = 0.9')
+
+   plt.plot(range(1,len(chart2["Machine learning AUC"].values)+1),gaussian_filter1d(chart2["Machine learning AUC"].values,sigma=smooth),"g--",color="red",label='ML, G = 0.8')
+   plt.plot(range(1,len(chart2["Machine learning AUC"].values)+1),gaussian_filter1d(chart2["PRSice AUC"].values,sigma=smooth),"g-.",color="red", label='PRSice, G = 0.8')
+   plt.plot(range(1,len(chart2["Machine learning AUC"].values)+1),gaussian_filter1d(chart2["Plink AUC"].values,sigma=smooth),"g:",color="red",label='Plink, G = 0.8')
+   plt.plot(range(1,len(chart2["Machine learning AUC"].values)+1),gaussian_filter1d(chart2["Lasso AUC"].values,sigma=smooth),color="red", label='Lasso, G = 0.8')
+
+   plt.plot(range(1,len(chart3["Machine learning AUC"].values)+1),gaussian_filter1d(chart3["Machine learning AUC"].values,sigma=smooth),"g--",color="black",label='ML, G = 0.7')
+   plt.plot(range(1,len(chart3["Machine learning AUC"].values)+1),gaussian_filter1d(chart3["PRSice AUC"].values,sigma=smooth),"g-.",color="black", label='PRSice, G = 0.7')
+   plt.plot(range(1,len(chart3["Machine learning AUC"].values)+1),gaussian_filter1d(chart3["Plink AUC"].values,sigma=smooth),"g:",color="black",label='Plink, G = 0.7')
+   plt.plot(range(1,len(chart3["Machine learning AUC"].values)+1),gaussian_filter1d(chart3["Lasso AUC"].values,sigma=smooth),color="black", label='Lasso, G = 0.7')
+
+   plt.plot(range(1,len(chart4["Machine learning AUC"].values)+1),gaussian_filter1d(chart4["Machine learning AUC"].values,sigma=smooth),"g--",color="g",label='ML, G = 0.6')
+   plt.plot(range(1,len(chart4["Machine learning AUC"].values)+1),gaussian_filter1d(chart4["PRSice AUC"].values,sigma=smooth),"g-.",color="g", label='PRSice, G = 0.6')
+   plt.plot(range(1,len(chart4["Machine learning AUC"].values)+1),gaussian_filter1d(chart4["Plink AUC"].values,sigma=smooth),"g:",color="g",label='Plink, G = 0.6')
+   plt.plot(range(1,len(chart4["Machine learning AUC"].values)+1),gaussian_filter1d(chart4["Lasso AUC"].values,sigma=smooth),color="g", label='Lasso, G = 0.6')
+
+   plt.axvline(19, 0, 1,linestyle='--')
+   plt.axvline(19*2, 0, 1,linestyle='--')
+   plt.axvline(19*3, 0, 1, linestyle='--')
+   plt.axvline(19*4, 0, 1, linestyle='--')
+   plt.legend(fontsize=100) # using a size in points
+   plt.legend(loc='best')
+   plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.2),
+            ncol=4, fancybox=True, shadow=True)
+
+   plt.show()
+
+
+

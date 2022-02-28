@@ -1,0 +1,20 @@
+.. Heritability, Genetic variation, and the number of risk SNPs effect on deep learning and polygenic risk scores AUC documentation master file, created by
+   sphinx-quickstart on Thu Sep 30 07:38:13 2021.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to Heritability, Genetic variation, and the number of risk SNPs effects on deep learning and polygenic risk scores AUC documentation!
+============================================================================================================================================================
+
+Sample files and code used for this study are available on `Google Drive <https://1drv.ms/u/s!AlFVll05llt7gwf59-lKmmlpb2P1?e=jc6zST>`_.
+
+If we generate 400 different datasets for 5000 people, then saving them would take 30*400 GB = 1.2 TB space, and it is nearly impossible to keep all datasets on a high-performance computing cluster. We mitigated this issue by converting the code to a producer and consumer scenario. The producer generates the data, the consumer performs the analysis after the analysis results are saved, old data is deleted, and the producer deletes new data. The space consumption is almost constant throughout the analysis.
+ 
+
+Content
+----------------
+
+.. toctree::
+   Step 0 - Generate Data
+   Step 1 - Analysis
+   Step 2 - GetResults

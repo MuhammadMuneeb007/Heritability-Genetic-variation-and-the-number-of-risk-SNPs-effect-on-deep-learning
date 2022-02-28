@@ -1,0 +1,513 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Step 0 - Generate Data &#8212; Heritability, Genetic variation, and the number of risk SNPs effect on deep learning and polygenic risk scores AUC 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Step 1 - Analysis" href="Step%201%20-%20Analysis.html" />
+    <link rel="prev" title="Welcome to Heritability, Genetic variation, and the number of risk SNPs effects on deep learning and polygenic risk scores AUC documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="step-0-generate-data">
+<h1>Step 0 - Generate Data<a class="headerlink" href="#step-0-generate-data" title="Permalink to this headline">¶</a></h1>
+<p>The generated dataset is available on <a class="reference external" href="https://1drv.ms/u/s!AlFVll05llt7gwf59-lKmmlpb2P1?e=jc6zST">Google Drive</a>.</p>
+<section id="dataset">
+<h2>Dataset<a class="headerlink" href="#dataset" title="Permalink to this headline">¶</a></h2>
+<p>If we generate 400 different datasets for 5000 people, it will take 30*400 GB = 1.2 TB space, and it is nearly impossible to keep all datasets on a high-performance computing cluster. We mitigated this issue by converting the code to a producer and consumer scenario. The producer generates the data, the consumer performs the analysis after the analysis results are saved, old data is deleted, and the producer deletes new data. The space consumption is almost constant throughout the analysis.</p>
+</section>
+<section id="dataset-generation-process">
+<h2>Dataset generation process<a class="headerlink" href="#dataset-generation-process" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Following files and directories are required to generate the dataset.</span>
+<span class="go">1. Merge (Directory which contains the merged files)</span>
+<span class="go">2.1 generate.py  (Python script to generate data from Hapgen2)</span>
+<span class="go">2.2 generate.sh  (Bash script to deploy generate.py on HPC)</span>
+<span class="go">3. gtool/plink  (Tools for processing)</span>
+<span class="go">4. merge.py  (Code for merging in python)</span>
+<span class="go">5. merge.sh  (Bash script to deploy merge.py on HPC)</span>
+<span class="go">6. people.txt  (List of directories in which sub-datasets should be stored. Numbered as 1, 2, 3, 4, 5, etc.)</span>
+<span class="go">7. rawdata  (Contains Hapgen2 files)</span>
+<span class="go">8. sample.R  (Rscript to generate PhenotypeSimulator data)</span>
+<span class="go">9. sample.sh (Script to generate Hapgen2 and PhenotypeSimulator)</span>
+<span class="go">10 CEU_1, CEU_2, CEU_3, and CEU_4 (Directories that contain PhenotypeSimulator data)</span>
+<span class="go">11 1, 2, 3, and 4 (Directories that contain test, train, and result for 1 2 3 4 iterations, respectively)</span>
+<span class="go">12 generatingdata.py (This file takes parameters and run the process for specific parameters)</span>
+<span class="go">13 generatingdata.sh (Bash script to deploy generatingdata.py on HPC)</span>
+<span class="go">14 parameters.csv (This file contains the parameters (&#39;Number of risk SNPs&#39;, &#39;Heritability&#39;, &#39;Genetic Variation&#39;))</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-generate-data-using-hapgen2-generate-py">
+<h2>Dataset generation - Generate data using Hapgen2 (generate.py)<a class="headerlink" href="#dataset-generation-generate-data-using-hapgen2-generate-py" title="Permalink to this headline">¶</a></h2>
+<p>Execute this code one time to generate data through Hapgen2.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp"># </span>Execute this code only one time.
+
+<span class="go">import os</span>
+<span class="go">import sys</span>
+<span class="go">import time</span>
+
+<span class="go">filename = str(sys.argv[1])</span>
+
+<span class="gp"># </span>Place <span class="m">1000</span> Genome + Hapmap3 <span class="o">(</span>CEU, Chromosome <span class="m">21</span><span class="o">)</span> data <span class="k">in</span> R/library/PhenotypeSimulator/extdata/genotypes/hapgen
+<span class="go">ps = &quot;/home/kunet.ae/ku500519/anaconda3/envs/R_test/lib/R/library/PhenotypeSimulator/extdata/genotypes/hapgen&quot;</span>
+
+<span class="gp"># </span>Generated data is saved <span class="k">in</span> the main directory.
+<span class="go">dest =&quot;/l/proj/kuin0025/MuhammadMuneeb/mlvsprs/finalized/rawdata&quot;</span>
+
+<span class="gp"># </span>Input to Hapgen is CEU.leg, CEU.haps, and CEU.map
+<span class="gp"># </span>Read information on this link to generate data from Hapgen2 https://mathgen.stats.ox.ac.uk/genetics_software/hapgen/hapgen2.html
+<span class="go">os.system(ps+os.sep+&quot;/hapgen2 -m &quot;+ps+os.sep+&quot;CEU.map -l &quot;+ps+os.sep+&quot;CEU.leg -h &quot;+ps+os.sep+&quot;CEU.haps -o &quot;+dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot; -dl 43351827 0 0 0 -n 50 0&quot;)</span>
+
+<span class="gp"># </span>Rename the files to process them easily
+<span class="go">os.rename(dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.controls.gen&quot;,dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.gen&quot;)</span>
+<span class="go">os.rename(dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.controls.sample&quot;,dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.sample&quot;)</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-generate-data-using-hapgen2-generate-sh">
+<h2>Dataset generation - Generate data using Hapgen2 (generate.sh)<a class="headerlink" href="#dataset-generation-generate-data-using-hapgen2-generate-sh" title="Permalink to this headline">¶</a></h2>
+<p>Execute this code one time to generate data through Hapgen2.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">#</span>!/bin/sh
+<span class="gp">#</span>SBATCH --nodes<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --ntasks-per-node<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --job-name<span class="o">=</span>PSBenchmark
+<span class="gp">#</span>SBATCH --time<span class="o">=</span><span class="m">1</span>:00:00
+<span class="gp">#</span>SBATCH --mem<span class="o">=</span>3000MB
+<span class="gp">#</span>SBATCH --partition<span class="o">=</span>prod
+<span class="gp">#</span>SBATCH --account<span class="o">=</span>kuin0009
+<span class="gp">#</span>SBATCH --output<span class="o">=</span>Hapgen.%A_%a.out
+<span class="gp">#</span>SBATCH --error<span class="o">=</span>Hapgen.%A_%a.err
+<span class="gp">#</span>SBATCH --array<span class="o">=</span><span class="m">1</span>-100
+
+
+<span class="go">module purge</span>
+<span class="go">module load miniconda/3</span>
+
+<span class="go">radius=$(head -n $SLURM_ARRAY_TASK_ID people.txt | tail -n 1)</span>
+<span class="go">python generate.py  $radius</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-generate-data-using-hapgen2-people-txt">
+<h2>Dataset generation - Generate data using Hapgen2 (people.txt)<a class="headerlink" href="#dataset-generation-generate-data-using-hapgen2-people-txt" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">1</span>
+<span class="go">2</span>
+<span class="go">3</span>
+<span class="go">4</span>
+<span class="go">.</span>
+<span class="go">.</span>
+<span class="go">.</span>
+<span class="go">99</span>
+<span class="go">100</span>
+</pre></div>
+</div>
+<p>After the steps mentioned above, the genotype dataset will be finalized/rawdata directory.</p>
+</section>
+<section id="dataset-generation-parameters-sh">
+<h2>Dataset generation - parameters.sh<a class="headerlink" href="#dataset-generation-parameters-sh" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Iteration,cNrSNP,Heritability,genVar,totalSNPeffect</span>
+<span class="go">2,5,0.05263158,0.9,0.047368422</span>
+<span class="go">3,5,0.10526316,0.9,0.094736844</span>
+<span class="go">4,5,0.15789474,0.9,0.142105266</span>
+<span class="go">5,5,0.21052632,0.9,0.189473688</span>
+<span class="go">6,5,0.26315789,0.9,0.236842101</span>
+<span class="go">7,5,0.31578947,0.9,0.284210523</span>
+<span class="go">8,5,0.36842105,0.9,0.331578945</span>
+<span class="go">9,5,0.42105263,0.9,0.378947367</span>
+<span class="go">10,5,0.47368421,0.9,0.426315789</span>
+
+<span class="gp"># </span>Note <span class="nv">totalSNPeffect</span><span class="o">=</span> Heritability*genVar
+<span class="gp"># </span><span class="nv">cNrSNP</span> <span class="o">=</span> Number of risk SNPs
+<span class="gp"># </span><span class="nv">genVar</span> <span class="o">=</span> Genetic Variation
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-generatingdata-sh">
+<h2>Dataset generation - generatingdata.sh<a class="headerlink" href="#dataset-generation-generatingdata-sh" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">#</span>!/bin/bash
+<span class="gp">#</span>SBATCH --nodes<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --ntasks-per-node<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --job-name<span class="o">=</span>Merge-5000
+<span class="gp">#</span>SBATCH --time<span class="o">=</span><span class="m">48</span>:00:00
+<span class="gp">#</span>SBATCH --mem<span class="o">=</span>1000MB
+<span class="gp">#</span>SBATCH --partition<span class="o">=</span>prod
+<span class="gp">#</span>SBATCH --account<span class="o">=</span>kuin0025
+<span class="gp">#</span>SBATCH --output<span class="o">=</span>head.%A_%a.out
+<span class="gp">#</span>SBATCH --error<span class="o">=</span>head.%A_%a.err
+<span class="gp">#</span>SBATCH --array<span class="o">=</span><span class="m">1</span>-1
+
+
+<span class="go">module purge</span>
+<span class="go">module load miniconda/3</span>
+
+<span class="go">python generatingdata.py</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-generatingdata-py">
+<h2>Dataset generation - generatingdata.py<a class="headerlink" href="#dataset-generation-generatingdata-py" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp"># </span>This is the starting point of the documentation.
+<span class="gp"># </span>This file contains the code which executes other tasks like data generation, calculating polygenic risk, and saving results.
+
+
+<span class="go">import os</span>
+<span class="go">import sys</span>
+<span class="go">import pandas as pd</span>
+<span class="go">import sys</span>
+<span class="go">import time</span>
+
+<span class="go">os.system(&quot;rm -rf Results.txt&quot;)</span>
+
+<span class="gp"># </span>This file stores the parameters which should be passed to sample.R file to generate the genotype data with specific parameters.
+
+<span class="go">parameters = pd.read_csv(&quot;parameterstest.csv&quot;)</span>
+<span class="go">print(parameters)</span>
+
+<span class="gp"># </span>Parse the rows and call the sample.sh file.
+<span class="go">for row in parameters.iterrows():</span>
+<span class="go">   text =os.popen(&#39;sbatch sample.sh &#39;+str(row[1][1])+&quot; &quot;+str(row[1][3])+&quot; &quot;+str(row[1][4])).read()</span>
+<span class="go">   aucs = [str(row[1][1]),str(row[1][3]),str(row[1][4])]</span>
+<span class="go">   textfile = open(&quot;Results.txt&quot;, &quot;a+&quot;)</span>
+
+<span class="gp">   # </span>Write the parameters to specific files.
+<span class="go">   for element in aucs:</span>
+<span class="go">      textfile.write(str(element))</span>
+<span class="go">   textfile.write(&#39;\n&#39;)</span>
+<span class="go">   textfile.close()</span>
+<span class="go">   time.sleep(5)</span>
+<span class="go">   print(text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1])</span>
+<span class="go">   time.sleep(10)</span>
+<span class="go">   print(os.popen(&quot;squeue | grep &quot;+text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1]).read())</span>
+
+<span class="gp">   # </span>Wait <span class="k">until</span> the above job is not finished.
+
+<span class="go">   while len(os.popen(&quot;squeue | grep &quot;+text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1]).read())&gt;0:</span>
+<span class="go">      pass</span>
+
+<span class="go">   time.sleep(10)</span>
+
+<span class="gp">   # </span>Remove the log files.
+<span class="go">   os.system(&#39;rm -rf PSBenchmark.*&#39;)</span>
+
+<span class="gp">   # </span>Merge all the genotype files
+<span class="go">   text =os.popen(&#39;sbatch merge.sh&#39;).read()</span>
+<span class="go">   print(text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1])</span>
+<span class="go">   time.sleep(10)</span>
+
+<span class="gp">   # </span>Wait <span class="k">for</span> the merging.
+<span class="go">   while len(os.popen(&quot;squeue | grep &quot;+text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1]).read())&gt;0:</span>
+<span class="go">      pass</span>
+
+
+<span class="go">   time.sleep(10)</span>
+<span class="go">   os.system(&#39;rm -rf CEU_*&#39;)</span>
+<span class="go">   os.system(&#39;rm -rf TEMP.*&#39;)</span>
+
+<span class="gp">   # </span>Call division.sh file, and it will calculate PRS.
+
+<span class="go">   text =os.popen(&#39;sbatch division.sh &#39;+str(row[1][1])+&quot; &quot;+str(row[1][3])+&quot; &quot;+str(row[1][4])).read()</span>
+<span class="go">   print(text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1])</span>
+<span class="go">   time.sleep(10)</span>
+<span class="go">   while len(os.popen(&quot;squeue | grep &quot;+text.split(&#39;\n&#39;)[0].split(&quot; &quot;)[-1]).read())&gt;0:</span>
+<span class="go">      pass</span>
+<span class="go">   time.sleep(10)</span>
+
+<span class="gp">   # </span>Remove log files and other files
+<span class="go">   os.system(&#39;rm -rf Merge&#39;)</span>
+<span class="go">   os.system(&#39;rm -rf prs.*&#39;)</span>
+<span class="go">   os.system(&#39;rm -rf {1..5}&#39;)</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-sample-sh">
+<h2>Dataset generation - sample.sh<a class="headerlink" href="#dataset-generation-sample-sh" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">#</span>!/bin/sh
+<span class="gp">#</span>SBATCH --nodes<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --ntasks-per-node<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --job-name<span class="o">=</span>PSBenchmark
+<span class="gp">#</span>SBATCH --time<span class="o">=</span><span class="m">1</span>:00:00
+<span class="gp">#</span>SBATCH --mem<span class="o">=</span>3000MB
+<span class="gp">#</span>SBATCH --partition<span class="o">=</span>prod
+<span class="gp">#</span>SBATCH --account<span class="o">=</span>kuin0025
+<span class="gp">#</span>SBATCH --output<span class="o">=</span>PSBenchmark.%A_%a.out
+<span class="gp">#</span>SBATCH --error<span class="o">=</span>PSBenchmark.%A_%a.err
+<span class="gp">#</span>SBATCH --array<span class="o">=</span><span class="m">1</span>-100
+
+
+
+
+<span class="gp"># </span>Read the directory name from the file, <span class="s2">&quot;people.txt&quot;</span>
+<span class="go">radius=$(head -n $SLURM_ARRAY_TASK_ID people.txt | tail -n 1)</span>
+
+<span class="gp">#</span>PASS data to PhenotypeSimulator
+<span class="gp">#</span><span class="nv">$1</span> <span class="o">=</span> cNrSNP
+<span class="gp">#</span><span class="nv">$2</span> <span class="o">=</span> Genetic Variation
+<span class="gp">#</span><span class="nv">$3</span> <span class="o">=</span> Heritability
+
+<span class="go">Rscript sample.R $radius $1 $2 $3</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-sample-r">
+<h2>Dataset generation - sample.R<a class="headerlink" href="#dataset-generation-sample-r" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">require(&quot;PhenotypeSimulator&quot;)</span>
+
+
+
+<span class="go">args = commandArgs(trailingOnly=TRUE)</span>
+
+<span class="go">start_time &lt;- Sys.time()</span>
+
+<span class="go">simulating &lt;- function(risksnp,genovar, number) {</span>
+<span class="go">numberofPeople = 50</span>
+<span class="go">print(args[1])</span>
+<span class="go">filem &lt;-paste(&quot;CEU&quot;,strtoi(args[1]),sep=&quot;_&quot;)</span>
+<span class="go">filem &lt;-paste(filem,&quot;gen&quot;,sep=&quot;.&quot;)</span>
+<span class="go">filem &lt;-paste(&quot;/l/proj/kuin0025/MuhammadMuneeb/mlvsprs/finalized/rawdata&quot;,filem,sep=&quot;/&quot;)</span>
+<span class="go">genotypefile &lt;- filem</span>
+<span class="go">genotypefile &lt;- gsub(&quot;\\.gen&quot;,&quot;&quot;, filem)</span>
+
+
+<span class="go">genVar &lt;- genovar</span>
+<span class="go">noiseVar &lt;- 1 - genVar</span>
+<span class="go">totalSNPeffect &lt;- number</span>
+<span class="go">h2s &lt;- totalSNPeffect/genVar</span>
+
+<span class="go">phi &lt;- 0.6</span>
+<span class="go">rho &lt;- 0.1</span>
+<span class="go">delta &lt;- 0.3</span>
+<span class="go">shared &lt;- 0.8</span>
+<span class="go">independent &lt;- 1 - shared</span>
+
+
+
+<span class="go">phenotype &lt;- runSimulation(N = numberofPeople, P = 1, genotypefile = genotypefile,</span>
+<span class="go">                           format = &quot;oxgen&quot;, cNrSNP = risksnp, genVar = genVar, h2s = h2s,</span>
+<span class="go">                           phi = 0.6, delta = 0.3, distBetaGenetic = &quot;unif&quot;, mBetaGenetic = 0.5,</span>
+<span class="go">                           sdBetaGenetic = 1, NrFixedEffects = 4, NrConfounders = c(1, 2, 1, 2), pIndependentConfounders = c(0, 1, 1, 0.5),</span>
+<span class="go">                           distConfounders = c(&quot;bin&quot;, &quot;cat_norm&quot;, &quot;cat_unif&quot;, &quot;norm&quot;),</span>
+<span class="go">                           probConfounders = 0.2, catConfounders = c(3, 4), pcorr = 0.8,</span>
+<span class="go">                           verbose = TRUE, seed = 3000)</span>
+
+
+
+
+<span class="go">result &lt;-paste(&quot;CEU&quot;,strtoi(args[1]),sep=&quot;_&quot;)</span>
+<span class="go">out &lt;- savePheno(phenotype, directory=getwd(),</span>
+<span class="go">                  outstring=result,</span>
+<span class="go">                  format=c(&quot;csv&quot;, &quot;snptest&quot;), verbose=FALSE)</span>
+
+
+<span class="go">}</span>
+<span class="go">print(as.double(args[2]))</span>
+<span class="go">print(as.double(args[3]))</span>
+<span class="go">print(as.double(args[4]))</span>
+
+<span class="go">simulating(as.double(args[2]),as.double(args[3]),as.double(args[4]))</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-generate-py">
+<h2>Dataset generation - generate.py<a class="headerlink" href="#dataset-generation-generate-py" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">import os</span>
+<span class="go">import sys</span>
+<span class="go">import time</span>
+
+<span class="gp"># </span>Directory <span class="k">in</span> which files will be saved.
+<span class="go">filename = str(sys.argv[1])</span>
+
+<span class="gp"># </span>Place <span class="m">1000</span> Genome + Hapmap3 <span class="o">(</span>CEU, Chromosome <span class="m">21</span><span class="o">)</span> data <span class="k">in</span> R/library/PhenotypeSimulator/extdata/genotypes/hapgen
+<span class="go">ps = &quot;/home/kunet.ae/ku500519/anaconda3/envs/R_test/lib/R/library/PhenotypeSimulator/extdata/genotypes/hapgen&quot;</span>
+
+<span class="gp"># </span>Destination folder
+<span class="go">dest =&quot;/l/proj/kuin0009/MuhammadMuneeb/mlvsprs/generatedata/rawdata&quot;</span>
+
+<span class="gp"># </span>Read information on this link to generate data from Hapgen2 https://mathgen.stats.ox.ac.uk/genetics_software/hapgen/hapgen2.html
+<span class="go">os.system(ps+os.sep+&quot;/hapgen2 -m &quot;+ps+os.sep+&quot;CEU.map -l &quot;+ps+os.sep+&quot;CEU.leg -h &quot;+ps+os.sep+&quot;CEU.haps -o &quot;+dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot; -dl 43351827 0 0 0 -n 1500 0&quot;)</span>
+
+<span class="gp"># </span>Rename the files to process them easily
+<span class="go">os.rename(dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.controls.gen&quot;,dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.gen&quot;)</span>
+<span class="go">os.rename(dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.controls.sample&quot;,dest+os.sep+&quot;CEU_&quot;+str(filename)+&quot;.sample&quot;)</span>
+</pre></div>
+</div>
+</section>
+<section id="id1">
+<h2>Dataset generation - sample.sh<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>This file contains the code to deploy the data generation process on High-performance computing (HPC)</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">#</span>!/bin/sh
+<span class="gp">#</span>SBATCH --nodes<span class="o">=</span><span class="m">1</span>
+<span class="gp">#</span>SBATCH --ntasks-per-node<span class="o">=</span><span class="m">52</span>
+<span class="gp">#</span>SBATCH --job-name<span class="o">=</span>PSBenchmark
+<span class="gp">#</span>SBATCH --time<span class="o">=</span><span class="m">24</span>:00:00
+<span class="gp">#</span>SBATCH --mem<span class="o">=</span>300000MB
+<span class="gp">#</span>SBATCH --partition<span class="o">=</span>prod
+<span class="gp">#</span>SBATCH --account<span class="o">=</span>kuin0009
+<span class="gp">#</span>SBATCH --output<span class="o">=</span>PSBenchmark.%A_%a.out
+<span class="gp">#</span>SBATCH --error<span class="o">=</span>PSBenchmark.%A_%a.err
+<span class="gp">#</span>SBATCH --array<span class="o">=</span><span class="m">1</span>-5
+
+
+<span class="go">module purge</span>
+<span class="go">module load miniconda/3</span>
+
+<span class="gp"># </span>Read the directory name from the file, <span class="s2">&quot;people.txt&quot;</span>
+<span class="go">radius=$(head -n $SLURM_ARRAY_TASK_ID people.txt | tail -n 1)</span>
+
+<span class="gp"># </span>Generate data from HAPGEN2
+<span class="go">python generate.py $radius</span>
+
+<span class="gp">#</span>PASS data to PhenotypeSimulator
+<span class="go">Rscript sample.R $radius</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-generation-merge-py">
+<h2>Dataset generation - merge.py<a class="headerlink" href="#dataset-generation-merge-py" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">import os</span>
+<span class="go">import pandas as pd</span>
+
+<span class="go">files = os.listdir(&quot;./&quot;)</span>
+<span class="go">if not os.path.isdir(&quot;Merge&quot;):</span>
+<span class="go">os.mkdir(&quot;Merge&quot;)</span>
+<span class="go">print(files)</span>
+<span class="go">data = pd.DataFrame()</span>
+<span class="go">gendata = pd.DataFrame()</span>
+<span class="go">count=0</span>
+<span class="go">for direc in files:</span>
+<span class="go">   if &quot;Merge&quot; not in direc and &quot;lib&quot; not in direc and &quot;rawdata&quot; not in direc and os.path.isdir(direc) and &quot;CEU&quot; in direc:</span>
+<span class="go">      df2 = pd.read_csv(direc+os.sep+&quot;Ysim_snptest.sample&quot;,sep=&quot; &quot;)</span>
+<span class="go">      sampletop = df2.head(1)</span>
+<span class="go">      samplebottom = df2.tail(len(df2)-1)</span>
+<span class="go">      data = pd.concat([samplebottom,data],axis=0)</span>
+<span class="go">      gen = pd.read_csv(direc+os.sep+&quot;Genotypes_snptest.gen&quot;,sep = &quot; &quot;,header=None)</span>
+<span class="go">      frontgen = gen[[0, 1, 2, 3 , 4]]</span>
+<span class="go">      gen = gen.drop(0, axis=1)</span>
+<span class="go">      gen = gen.drop(1,axis=1)</span>
+<span class="go">      gen = gen.drop(2,axis=1)</span>
+<span class="go">      gen = gen.drop(3,axis=1)</span>
+<span class="go">      gen = gen.drop(4,axis=1)</span>
+<span class="go">      gendata = pd.concat([gendata,gen],axis=1,ignore_index=True)</span>
+<span class="go">      print(&quot;Merged&quot;,str(count))</span>
+<span class="go">      count=count+1</span>
+<span class="go">gendata = pd.concat([frontgen,gendata],axis=1)</span>
+<span class="go">gendata.to_csv(&quot;Merge&quot;+os.sep+&quot;Genotypes_snptest.gen&quot;,index=False,header=False,sep= &quot; &quot;)</span>
+<span class="go">data[&#39;ID_1&#39;] = range(1,len(data)+1)</span>
+<span class="go">data[&#39;ID_2&#39;] = range(1,len(data)+1)</span>
+
+<span class="go">data = pd.concat([sampletop,data],axis=0)</span>
+<span class="go">data.to_csv(&quot;Merge&quot;+os.sep+&quot;Ysim_snptest.sample&quot;,index=False, sep=&quot; &quot;)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Heritability, Genetic variation, and the number of risk SNPs effect on deep learning and polygenic risk scores AUC</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Step 0 - Generate Data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dataset">Dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-process">Dataset generation process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-generate-data-using-hapgen2-generate-py">Dataset generation - Generate data using Hapgen2 (generate.py)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-generate-data-using-hapgen2-generate-sh">Dataset generation - Generate data using Hapgen2 (generate.sh)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-generate-data-using-hapgen2-people-txt">Dataset generation - Generate data using Hapgen2 (people.txt)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-parameters-sh">Dataset generation - parameters.sh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-generatingdata-sh">Dataset generation - generatingdata.sh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-generatingdata-py">Dataset generation - generatingdata.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-sample-sh">Dataset generation - sample.sh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-sample-r">Dataset generation - sample.R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-generate-py">Dataset generation - generate.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">Dataset generation - sample.sh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-generation-merge-py">Dataset generation - merge.py</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Step%201%20-%20Analysis.html">Step 1 - Analysis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Step%202%20-%20GetResults.html">Step 2 - GetResults</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to Heritability, Genetic variation, and the number of risk SNPs effects on deep learning and polygenic risk scores AUC documentation!</a></li>
+      <li>Next: <a href="Step%201%20-%20Analysis.html" title="next chapter">Step 1 - Analysis</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Muhammad Muneeb and Samuel F. Feng.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/Step 0 - Generate Data.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

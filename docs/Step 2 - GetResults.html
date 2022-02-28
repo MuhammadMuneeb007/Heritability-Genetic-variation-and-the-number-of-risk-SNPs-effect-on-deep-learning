@@ -1,0 +1,407 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Step 2 - GetResults &#8212; Heritability, Genetic variation, and the number of risk SNPs effect on deep learning and polygenic risk scores AUC 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Step 1 - Analysis" href="Step%201%20-%20Analysis.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="step-2-getresults">
+<h1>Step 2 - GetResults<a class="headerlink" href="#step-2-getresults" title="Permalink to this headline">¶</a></h1>
+<section id="code-execution">
+<h2>Code execution<a class="headerlink" href="#code-execution" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python GetResults.py (DirectoryName in which files will be stored)</span>
+<span class="go">For example: python GetResults.py 1</span>
+</pre></div>
+</div>
+</section>
+<section id="actual-code-in-getresults">
+<h2>Actual Code in GetResults<a class="headerlink" href="#actual-code-in-getresults" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">import pandas as pd</span>
+<span class="go">import sys</span>
+<span class="go">import os</span>
+<span class="go">import glob</span>
+<span class="go">import shutil</span>
+<span class="go">import sys</span>
+<span class="go">import numpy as np</span>
+<span class="go">import scipy as sp</span>
+<span class="go">from scipy import stats</span>
+<span class="go">import matplotlib.pyplot as plt</span>
+<span class="go">from sklearn.metrics import roc_auc_score</span>
+<span class="go">import math</span>
+<span class="go">import matplotlib.pyplot as plt</span>
+<span class="go">import numpy as np</span>
+<span class="go">import scipy.stats as stats</span>
+<span class="go">import math</span>
+<span class="go">import matplotlib.pyplot as plt</span>
+<span class="go">from scipy.stats import norm</span>
+<span class="go">import statistics</span>
+<span class="go">import seaborn as sns</span>
+
+
+<span class="go">direc = sys.argv[1]</span>
+
+
+<span class="go">def NormalizeData(data):</span>
+<span class="go">   return (data - np.min(data)) / (np.max(data) - np.min(data))</span>
+<span class="go">def calculateAUCPRScice(direc):</span>
+<span class="go">   best = pd.read_csv(direc+os.sep+&quot;result&quot;+os.sep+&quot;PRScice_PRS.best&quot;,sep=&quot;\s+&quot;)</span>
+<span class="go">   pheno = pd.read_csv(direc+os.sep+&quot;/test/YRI.pheno&quot;,sep=&quot;\s+&quot;)</span>
+
+
+
+<span class="go">   temp = NormalizeData(best[&quot;PRS&quot;].values)</span>
+<span class="go">   best[&quot;PRS&quot;] = NormalizeData(np.array(best[&quot;PRS&quot;].values))</span>
+
+<span class="go">   best[&quot;PRS&quot;].values[best[&quot;PRS&quot;] &gt;=0.5] = 1</span>
+<span class="go">   best[&quot;PRS&quot;].values[best[&quot;PRS&quot;] &lt; 0.5] = 0</span>
+
+
+<span class="go">   print(&quot;AUC&quot;,roc_auc_score(np.array(best[&quot;PRS&quot;].values), np.array(pheno[&#39;phenotype&#39;].values)))</span>
+<span class="go">   a= best[&quot;PRS&quot;].values</span>
+<span class="go">   b = pheno[&#39;phenotype&#39;].values</span>
+<span class="go">   accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)</span>
+<span class="go">   print(&quot;Accuracy&quot;,accuracy)</span>
+<span class="go">   return temp, roc_auc_score(np.array(best[&quot;PRS&quot;].values), np.array(pheno[&#39;phenotype&#39;].values))</span>
+
+
+<span class="go">def calculateAUCPlink(direc):</span>
+<span class="go">   pheno = pd.read_csv(direc+os.sep+&quot;/test/YRI.pheno&quot;,sep=&quot;\s+&quot;)</span>
+<span class="go">   files = os.listdir(direc+os.sep+&quot;files&quot;)</span>
+<span class="go">   maxxacc=0</span>
+<span class="go">   maxauc = 0</span>
+<span class="go">   profile = &quot;&quot;</span>
+<span class="go">   temp = []</span>
+<span class="go">   for loop in files:</span>
+
+<span class="go">      if &quot;.profile&quot; in loop:</span>
+<span class="gp">         # </span>Find AUC <span class="k">for</span> all profiles.
+<span class="go">         best = pd.read_csv(direc+os.sep+&quot;files&quot;+os.sep+loop,sep=&quot;\s+&quot;)</span>
+<span class="go">         best[&quot;SCORE&quot;] = NormalizeData(best[&quot;SCORE&quot;].values)</span>
+<span class="go">         best[&quot;SCORE&quot;].values[best[&quot;SCORE&quot;] &gt;=0.5] = 1</span>
+<span class="go">         best[&quot;SCORE&quot;].values[best[&quot;SCORE&quot;] &lt; 0.5] = 0</span>
+
+<span class="go">         if maxauc&lt;roc_auc_score(best[&quot;SCORE&quot;].values, pheno[&#39;phenotype&#39;].values):</span>
+<span class="go">            maxauc = roc_auc_score(best[&quot;SCORE&quot;].values, pheno[&#39;phenotype&#39;].values)</span>
+<span class="go">            temp = NormalizeData(pd.read_csv(direc+os.sep+&quot;files&quot;+os.sep+loop,sep=&quot;\s+&quot;)[&quot;SCORE&quot;].values)</span>
+<span class="go">            profile = loop</span>
+<span class="go">            a= best[&quot;SCORE&quot;].values</span>
+<span class="go">            b = pheno[&#39;phenotype&#39;].values</span>
+<span class="go">            accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)</span>
+<span class="go">            maxxacc = accuracy</span>
+<span class="go">   print(&quot;AUC&quot;,maxauc)</span>
+<span class="go">   print(&quot;Accuracy&quot;,maxxacc)</span>
+<span class="go">   print(&quot;Profile&quot;, profile)</span>
+<span class="go">   return temp,maxauc</span>
+
+<span class="go">def calculateAUClasso(direc):</span>
+<span class="go">   best = pd.read_csv(direc+os.sep+&quot;result&quot;+os.sep+&quot;test.txt&quot;,sep=&quot;\s+&quot;,header=None)</span>
+<span class="go">   pheno = pd.read_csv(direc+os.sep+&quot;/test/YRI.pheno&quot;,sep=&quot;\s+&quot;)</span>
+
+
+<span class="go">   best[0] = NormalizeData(best[0].values)</span>
+<span class="go">   temp = NormalizeData(best[0].values)</span>
+<span class="go">   best[0].values[best[0] &gt;=0.5] = 1</span>
+<span class="go">   best[0].values[best[0] &lt; 0.5] = 0</span>
+
+<span class="go">   print(&quot;AUC&quot;,roc_auc_score(best[0].values, pheno[&#39;phenotype&#39;].values))</span>
+<span class="go">   a= best[0].values</span>
+<span class="go">   b = pheno[&#39;phenotype&#39;].values</span>
+<span class="go">   accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)</span>
+<span class="go">   print(&quot;Accuracy&quot;,accuracy)</span>
+<span class="go">   return temp, AUC</span>
+
+
+<span class="go">def calculateAUCMachineLearning(direc):</span>
+<span class="go">   pheno = pd.read_csv(direc+os.sep+&quot;/test/YRI.pheno&quot;,sep=&quot;\s+&quot;)</span>
+
+<span class="go">   files = os.listdir(direc)</span>
+<span class="go">   maxxacc=0</span>
+<span class="go">   maxauc = 0</span>
+<span class="go">   profile = &quot;&quot;</span>
+<span class="go">   temp = []</span>
+<span class="go">   for loop in files:</span>
+<span class="gp">      # </span>Find AUC <span class="k">for</span> all p-values and machine learning.
+<span class="go">      if &quot;pv_&quot; in loop:</span>
+<span class="go">         best = pd.read_csv(direc+os.sep+loop+os.sep+&quot;ML_probability&quot;,sep=&quot;\s+&quot;,header=None)</span>
+<span class="gp">         #</span>plt.hist<span class="o">(</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">)</span>
+<span class="gp">         #</span>plt.show<span class="o">()</span>
+
+<span class="gp">         #</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">[</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span> &gt;<span class="o">=</span> sum<span class="o">(</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">)</span>/len<span class="o">(</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">)]</span> <span class="o">=</span> <span class="m">1</span>
+<span class="gp">         #</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">[</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span> &lt; sum<span class="o">(</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">)</span>/len<span class="o">(</span>best<span class="o">[</span><span class="s2">&quot;PRS&quot;</span><span class="o">]</span>.values<span class="o">)]</span> <span class="o">=</span> <span class="m">0</span>
+<span class="go">         best[0] = NormalizeData(best[0].values)</span>
+
+<span class="go">         best[0].values[best[0] &gt;=0.5] = 1</span>
+<span class="go">         best[0].values[best[0] &lt; 0.5] = 0</span>
+
+<span class="go">         if maxauc&lt;roc_auc_score(best[0].values, pheno[&#39;phenotype&#39;].values):</span>
+<span class="go">            maxauc = roc_auc_score(best[0].values, pheno[&#39;phenotype&#39;].values)</span>
+<span class="go">            temp = NormalizeData(pd.read_csv(direc+os.sep+loop+os.sep+&quot;ML_probability&quot;,sep=&quot;\s+&quot;,header=None)[0].values)</span>
+<span class="go">            profile = loop</span>
+<span class="go">            a= best[0].values</span>
+<span class="go">            b = pheno[&#39;phenotype&#39;].values</span>
+<span class="go">            accuracy = len([a[i] for i in range(0, len(a)) if a[i] == b[i]]) / len(a)</span>
+<span class="go">            maxxacc = accuracy</span>
+<span class="go">   print(&quot;AUC&quot;,maxauc)</span>
+<span class="go">   print(&quot;Accuracy&quot;,maxxacc)</span>
+<span class="go">   print(&quot;Profile&quot;, profile)</span>
+<span class="go">   return temp, maxauc</span>
+
+<span class="go">x,y1 = calculateAUCPRScice(direc)</span>
+<span class="go">n_samples = len(x)</span>
+<span class="go">rng = np.random.RandomState(0)</span>
+<span class="go">x = sns.distplot(x,hist=False,color=&#39;y&#39;)</span>
+
+
+<span class="go">x,y2 = calculateAUCPlink(direc)</span>
+<span class="go">x = sns.distplot(x,hist=True,color = &#39;r&#39;)</span>
+
+<span class="go">x,y3 = calculateAUClasso(direc)</span>
+<span class="go">x = sns.distplot(x, hist=True,color=&#39;g&#39;)</span>
+
+
+<span class="go">x,y4 = calculateAUCMachineLearning(direc)</span>
+<span class="go">x = sns.distplot(x, hist=True,color=&#39;b&#39;)</span>
+
+<span class="go">aucs = [y1,y2,y3,y4]</span>
+<span class="go">textfile = open(&quot;Results.txt&quot;, &quot;a+&quot;)</span>
+
+<span class="gp"># </span>Write accuracy <span class="k">for</span> each tool <span class="k">in</span> a file.
+<span class="go">for element in aucs:</span>
+<span class="go">   textfile.write(str(element))</span>
+<span class="go">textfile.write(&#39;\n&#39;)</span>
+<span class="go">textfile.close()</span>
+</pre></div>
+</div>
+</section>
+<section id="helper-functions-plotting">
+<h2>Helper Functions plotting<a class="headerlink" href="#helper-functions-plotting" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span>import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from decimal import *
+
+# Read the result file
+data = pd.read_csv(&quot;Resultsparameter.txt&quot;,header=None)
+
+# Read the parameter file
+chart = pd.read_csv(&quot;parameters2.csv&quot;)
+
+from statistics import mean
+
+# Temporary variable to store the results separately
+tempprsice = []
+tempplink = []
+templasso = []
+tempml = []
+prsice = []
+plink = []
+lasso = []
+ml = []
+
+
+for ind in data.index:
+   if len(data[0][ind])&gt;20:
+      # Remove lines if length is less than 20 because it contains the parameter values.
+      print(data[0][ind].split(&quot;.&quot;)[1:])
+      tempprsice.append(float(data[0][ind].split(&quot;.&quot;)[1:][0][:2])/100)
+      tempplink.append(float(data[0][ind].split(&quot;.&quot;)[1:][1][:2])/100)
+      templasso.append(float(data[0][ind].split(&quot;.&quot;)[1:][2][:2])/100)
+      tempml.append(float(data[0][ind].split(&quot;.&quot;)[1:][3][:2])/100)
+      print(tempml)
+   else:
+      snp = data[0][ind].split(&quot;.&quot;)[0]
+      if len(tempml)&gt;0:
+         prsice.append(mean(tempprsice))
+         plink.append(mean(tempplink))
+         lasso.append(mean(templasso))
+         ml.append(mean(tempml))
+         tempprsice = []
+         tempplink = []
+         templasso = []
+         tempml = []
+prsice.append(mean(tempprsice))
+plink.append(mean(tempplink))
+lasso.append(mean(templasso))
+ml.append(mean(tempml))
+tempprsice = []
+tempplink = []
+templasso = []
+tempml = []
+
+prsice = np.array(prsice)
+plink = np.array(plink)
+lasso = np.array(lasso)
+ml = np.array(ml)
+
+del chart[&quot;Iteration&quot;]
+
+chart[&quot;Machine learning AUC&quot;] = ml
+chart[&quot;PRSice AUC&quot;] = prsice
+chart[&quot;Plink AUC&quot;] = plink
+chart[&quot;Lasso AUC&quot;] = lasso
+chart.rename({&#39;cNrSNP&#39;: &#39;Number of risk SNPs&#39;, &#39;Heritibility&#39;: &#39;Heritability&#39;,&#39;genVar&#39;:&#39;Genetic Variation&#39;}, axis=1, inplace=True)
+
+# This file contains the parameter values and tool&#39;s AUC at each low. AUC for each tool is an average of 5 iterations.
+chart.to_csv(&quot;finalparameter2.csv&quot;,index=False)
+</pre></div>
+</div>
+</section>
+<section id="helper-functions-plotting-2">
+<h2>Helper Functions plotting 2<a class="headerlink" href="#helper-functions-plotting-2" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">import pandas as pd</span>
+<span class="go">import numpy as np</span>
+<span class="go">import matplotlib</span>
+<span class="go">import matplotlib.pyplot as plt</span>
+<span class="go">from decimal import *</span>
+<span class="go">font = {&#39;family&#39; : &#39;normal&#39;,</span>
+<span class="go">      &#39;size&#39;   : 15}</span>
+<span class="go">matplotlib.rc(&#39;font&#39;, **font)</span>
+
+<span class="go">matplotlib.rc(&#39;xtick&#39;, labelsize=30)</span>
+<span class="go">matplotlib.rc(&#39;ytick&#39;, labelsize=30)</span>
+
+<span class="go">from scipy.ndimage.filters import gaussian_filter1d</span>
+<span class="go">chart1 = pd.read_csv(&quot;finalparameter1.csv&quot;)</span>
+<span class="go">chart2 = pd.read_csv(&quot;finalparameter2.csv&quot;)</span>
+<span class="go">chart3 = pd.read_csv(&quot;finalparameter3.csv&quot;)</span>
+<span class="go">chart4 = pd.read_csv(&quot;finalparameter4.csv&quot;)</span>
+
+<span class="go">smooth= 2</span>
+<span class="go">plt.plot(range(1,len(chart1[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart1[&quot;Machine learning AUC&quot;].values,sigma=smooth),&quot;g--&quot;,color=&quot;blue&quot;,label=&#39;ML, G = 0.9&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart1[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart1[&quot;PRSice AUC&quot;].values,sigma=smooth),&quot;g-.&quot;,color=&quot;blue&quot;, label=&#39;PRSice, G = 0.9&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart1[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart1[&quot;Plink AUC&quot;].values,sigma=smooth),&quot;g:&quot;,color=&quot;blue&quot;,label=&#39;Plink, G = 0.9&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart1[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart1[&quot;Lasso AUC&quot;].values,sigma=smooth),color=&quot;blue&quot;, label=&#39;Lasso, G = 0.9&#39;)</span>
+
+<span class="go">plt.plot(range(1,len(chart2[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart2[&quot;Machine learning AUC&quot;].values,sigma=smooth),&quot;g--&quot;,color=&quot;red&quot;,label=&#39;ML, G = 0.8&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart2[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart2[&quot;PRSice AUC&quot;].values,sigma=smooth),&quot;g-.&quot;,color=&quot;red&quot;, label=&#39;PRSice, G = 0.8&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart2[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart2[&quot;Plink AUC&quot;].values,sigma=smooth),&quot;g:&quot;,color=&quot;red&quot;,label=&#39;Plink, G = 0.8&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart2[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart2[&quot;Lasso AUC&quot;].values,sigma=smooth),color=&quot;red&quot;, label=&#39;Lasso, G = 0.8&#39;)</span>
+
+<span class="go">plt.plot(range(1,len(chart3[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart3[&quot;Machine learning AUC&quot;].values,sigma=smooth),&quot;g--&quot;,color=&quot;black&quot;,label=&#39;ML, G = 0.7&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart3[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart3[&quot;PRSice AUC&quot;].values,sigma=smooth),&quot;g-.&quot;,color=&quot;black&quot;, label=&#39;PRSice, G = 0.7&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart3[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart3[&quot;Plink AUC&quot;].values,sigma=smooth),&quot;g:&quot;,color=&quot;black&quot;,label=&#39;Plink, G = 0.7&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart3[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart3[&quot;Lasso AUC&quot;].values,sigma=smooth),color=&quot;black&quot;, label=&#39;Lasso, G = 0.7&#39;)</span>
+
+<span class="go">plt.plot(range(1,len(chart4[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart4[&quot;Machine learning AUC&quot;].values,sigma=smooth),&quot;g--&quot;,color=&quot;g&quot;,label=&#39;ML, G = 0.6&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart4[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart4[&quot;PRSice AUC&quot;].values,sigma=smooth),&quot;g-.&quot;,color=&quot;g&quot;, label=&#39;PRSice, G = 0.6&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart4[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart4[&quot;Plink AUC&quot;].values,sigma=smooth),&quot;g:&quot;,color=&quot;g&quot;,label=&#39;Plink, G = 0.6&#39;)</span>
+<span class="go">plt.plot(range(1,len(chart4[&quot;Machine learning AUC&quot;].values)+1),gaussian_filter1d(chart4[&quot;Lasso AUC&quot;].values,sigma=smooth),color=&quot;g&quot;, label=&#39;Lasso, G = 0.6&#39;)</span>
+
+<span class="go">plt.axvline(19, 0, 1,linestyle=&#39;--&#39;)</span>
+<span class="go">plt.axvline(19*2, 0, 1,linestyle=&#39;--&#39;)</span>
+<span class="go">plt.axvline(19*3, 0, 1, linestyle=&#39;--&#39;)</span>
+<span class="go">plt.axvline(19*4, 0, 1, linestyle=&#39;--&#39;)</span>
+<span class="go">plt.legend(fontsize=100) # using a size in points</span>
+<span class="go">plt.legend(loc=&#39;best&#39;)</span>
+<span class="go">plt.legend(loc=&#39;upper center&#39;, bbox_to_anchor=(0.5, 1.2),</span>
+<span class="go">         ncol=4, fancybox=True, shadow=True)</span>
+
+<span class="go">plt.show()</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Heritability, Genetic variation, and the number of risk SNPs effect on deep learning and polygenic risk scores AUC</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Step%200%20-%20Generate%20Data.html">Step 0 - Generate Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Step%201%20-%20Analysis.html">Step 1 - Analysis</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Step 2 - GetResults</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#code-execution">Code execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#actual-code-in-getresults">Actual Code in GetResults</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#helper-functions-plotting">Helper Functions plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#helper-functions-plotting-2">Helper Functions plotting 2</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="Step%201%20-%20Analysis.html" title="previous chapter">Step 1 - Analysis</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Muhammad Muneeb and Samuel F. Feng.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/Step 2 - GetResults.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,83 @@
+Step 1 - Analysis
+======================================================================
+
+When calculating PRS, the GWAS summary statistic file is the Base file, a training set in Machine learning, whereas the Target file is a test set in machine learning.
+
+Code execution 
+------------------------
+python dividedata.sh (Bash file to perform analysis)
+
+.. code-block:: console
+
+   #!/bin/bash
+   #SBATCH --nodes=1
+   #SBATCH --ntasks-per-node=1
+   #SBATCH --job-name=ped
+   #SBATCH --time=48:00:00
+   #SBATCH --mem=1000MB
+   #SBATCH --partition=prod
+   #SBATCH --account=kuin0025
+   #SBATCH --output=prs.%A_%a.out
+   #SBATCH --error=prs.%A_%a.err
+   #SBATCH --array=1-5
+
+   module purge
+   module load miniconda/3
+
+   #This command divides the dataset into cases and controls
+   python dividedata.py $SLURM_ARRAY_TASK_ID
+
+   #This is for quality control steps and Polygenic Risk Score calculation.
+   python CalculatePRS.py $SLURM_ARRAY_TASK_ID
+
+   # Perform p-value thresholding on each Iteration.
+   python pvalue.py $SLURM_ARRAY_TASK_ID 1
+   python pvalue.py $SLURM_ARRAY_TASK_ID 0.1
+   python pvalue.py $SLURM_ARRAY_TASK_ID 0.01
+   python pvalue.py $SLURM_ARRAY_TASK_ID 0.001
+
+   
+   # Machine learning for each Iteration.
+   python pmodel.py $SLURM_ARRAY_TASK_ID
+   
+   # Get results for each Iteration.
+   python getresults.py $SLURM_ARRAY_TASK_ID
+   
+
+
+ 
+
+
+Code in dividedata.py
+--------------------------------
+
+See this link `dividedata <https://muhammadmuneeb007.github.io/Benchmarking---Machine-learning-vs-PRS/Step%201%20-%20Divide%20Data%20into%20Base%20and%20Target%20sets.html>`_.
+
+   
+Actual Code in CalculatePRS.py
+--------------------------------
+
+See this link `CalculatePRS <https://muhammadmuneeb007.github.io/Benchmarking---Machine-learning-vs-PRS/Step%202%20-%20CalculatePRS.html>`_.
+
+ 
+
+
+Actual Code in QCTarget.R
+--------------------------------
+
+See this link `QCTarget <https://muhammadmuneeb007.github.io/Benchmarking---Machine-learning-vs-PRS/Step%202.0%20-%20QCTarget.R.html>`_.
+
+
+
+Actual Code in pvalue.py
+------------------------------------
+
+
+See this link `Pvaluethreshold <https://muhammadmuneeb007.github.io/Benchmarking---Machine-learning-vs-PRS/Step%203%20-%20Pvaluethreshold.html>`_.
+
+
+Actual Code in pmodel.py
+----------------------------------------
+
+See this link `MachineLearning <https://muhammadmuneeb007.github.io/Benchmarking---Machine-learning-vs-PRS/Step%204%20-%20MachineLearning.html>`_.
+  

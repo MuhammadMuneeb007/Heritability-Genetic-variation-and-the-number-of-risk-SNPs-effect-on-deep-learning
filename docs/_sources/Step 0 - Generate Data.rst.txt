@@ -1,0 +1,423 @@
+Step 0 - Generate Data
+=========================
+The generated dataset is available on `Google Drive <https://1drv.ms/u/s!AlFVll05llt7gwf59-lKmmlpb2P1?e=jc6zST>`_.
+
+
+Dataset
+------------------------
+If we generate 400 different datasets for 5000 people, it will take 30*400 GB = 1.2 TB space, and it is nearly impossible to keep all datasets on a high-performance computing cluster. We mitigated this issue by converting the code to a producer and consumer scenario. The producer generates the data, the consumer performs the analysis after the analysis results are saved, old data is deleted, and the producer deletes new data. The space consumption is almost constant throughout the analysis.
+
+
+ 
+
+Dataset generation process
+----------------------------
+
+.. code-block:: console
+
+   Following files and directories are required to generate the dataset.
+   1. Merge (Directory which contains the merged files)
+   2.1 generate.py  (Python script to generate data from Hapgen2)
+   2.2 generate.sh  (Bash script to deploy generate.py on HPC)
+   3. gtool/plink  (Tools for processing)
+   4. merge.py  (Code for merging in python)
+   5. merge.sh  (Bash script to deploy merge.py on HPC)
+   6. people.txt  (List of directories in which sub-datasets should be stored. Numbered as 1, 2, 3, 4, 5, etc.)
+   7. rawdata  (Contains Hapgen2 files)
+   8. sample.R  (Rscript to generate PhenotypeSimulator data)
+   9. sample.sh (Script to generate Hapgen2 and PhenotypeSimulator)
+   10 CEU_1, CEU_2, CEU_3, and CEU_4 (Directories that contain PhenotypeSimulator data) 
+   11 1, 2, 3, and 4 (Directories that contain test, train, and result for 1 2 3 4 iterations, respectively) 
+   12 generatingdata.py (This file takes parameters and run the process for specific parameters) 
+   13 generatingdata.sh (Bash script to deploy generatingdata.py on HPC)
+   14 parameters.csv (This file contains the parameters ('Number of risk SNPs', 'Heritability', 'Genetic Variation'))
+
+Dataset generation - Generate data using Hapgen2 (generate.py)
+----------------------------------------------------------------
+Execute this code one time to generate data through Hapgen2.
+
+
+.. code-block:: console
+
+   # Execute this code only one time.
+
+   import os
+   import sys
+   import time
+
+   filename = str(sys.argv[1])
+   
+   # Place 1000 Genome + Hapmap3 (CEU, Chromosome 21) data in R/library/PhenotypeSimulator/extdata/genotypes/hapgen
+   ps = "/home/kunet.ae/ku500519/anaconda3/envs/R_test/lib/R/library/PhenotypeSimulator/extdata/genotypes/hapgen"
+   
+   # Generated data is saved in the main directory.
+   dest ="/l/proj/kuin0025/MuhammadMuneeb/mlvsprs/finalized/rawdata"
+   
+   # Input to Hapgen is CEU.leg, CEU.haps, and CEU.map
+   # Read information on this link to generate data from Hapgen2 https://mathgen.stats.ox.ac.uk/genetics_software/hapgen/hapgen2.html
+   os.system(ps+os.sep+"/hapgen2 -m "+ps+os.sep+"CEU.map -l "+ps+os.sep+"CEU.leg -h "+ps+os.sep+"CEU.haps -o "+dest+os.sep+"CEU_"+str(filename)+" -dl 43351827 0 0 0 -n 50 0")
+   
+   # Rename the files to process them easily
+   os.rename(dest+os.sep+"CEU_"+str(filename)+".controls.gen",dest+os.sep+"CEU_"+str(filename)+".gen")
+   os.rename(dest+os.sep+"CEU_"+str(filename)+".controls.sample",dest+os.sep+"CEU_"+str(filename)+".sample")
+
+Dataset generation - Generate data using Hapgen2 (generate.sh)
+----------------------------------------------------------------
+Execute this code one time to generate data through Hapgen2.
+
+.. code-block:: console
+
+   #!/bin/sh
+   #SBATCH --nodes=1
+   #SBATCH --ntasks-per-node=1
+   #SBATCH --job-name=PSBenchmark
+   #SBATCH --time=1:00:00
+   #SBATCH --mem=3000MB
+   #SBATCH --partition=prod
+   #SBATCH --account=kuin0009
+   #SBATCH --output=Hapgen.%A_%a.out
+   #SBATCH --error=Hapgen.%A_%a.err
+   #SBATCH --array=1-100
+
+
+   module purge
+   module load miniconda/3
+
+   radius=$(head -n $SLURM_ARRAY_TASK_ID people.txt | tail -n 1)
+   python generate.py  $radius
+
+Dataset generation - Generate data using Hapgen2 (people.txt)
+----------------------------------------------------------------
+
+.. code-block:: console
+
+   1
+   2
+   3
+   4
+   .
+   .
+   .
+   99
+   100
+
+
+
+After the steps mentioned above, the genotype dataset will be finalized/rawdata directory.
+
+Dataset generation - parameters.sh
+---------------------------------------------
+
+.. code-block:: console
+
+   Iteration,cNrSNP,Heritability,genVar,totalSNPeffect
+   2,5,0.05263158,0.9,0.047368422
+   3,5,0.10526316,0.9,0.094736844
+   4,5,0.15789474,0.9,0.142105266
+   5,5,0.21052632,0.9,0.189473688
+   6,5,0.26315789,0.9,0.236842101
+   7,5,0.31578947,0.9,0.284210523
+   8,5,0.36842105,0.9,0.331578945
+   9,5,0.42105263,0.9,0.378947367
+   10,5,0.47368421,0.9,0.426315789
+
+   # Note totalSNPeffect= Heritability*genVar
+   # cNrSNP = Number of risk SNPs
+   # genVar = Genetic Variation
+
+Dataset generation - generatingdata.sh
+---------------------------------------------
+
+.. code-block:: console
+
+   #!/bin/bash
+   #SBATCH --nodes=1
+   #SBATCH --ntasks-per-node=1
+   #SBATCH --job-name=Merge-5000
+   #SBATCH --time=48:00:00
+   #SBATCH --mem=1000MB
+   #SBATCH --partition=prod
+   #SBATCH --account=kuin0025
+   #SBATCH --output=head.%A_%a.out
+   #SBATCH --error=head.%A_%a.err
+   #SBATCH --array=1-1
+
+
+   module purge
+   module load miniconda/3
+
+   python generatingdata.py
+
+Dataset generation - generatingdata.py
+---------------------------------------------
+
+.. code-block:: console
+
+   # This is the starting point of the documentation.
+   # This file contains the code which executes other tasks like data generation, calculating polygenic risk, and saving results.
+
+
+   import os
+   import sys
+   import pandas as pd
+   import sys
+   import time
+
+   os.system("rm -rf Results.txt")
+   
+   # This file stores the parameters which should be passed to sample.R file to generate the genotype data with specific parameters.
+   
+   parameters = pd.read_csv("parameterstest.csv")
+   print(parameters)
+   
+   # Parse the rows and call the sample.sh file.
+   for row in parameters.iterrows():
+      text =os.popen('sbatch sample.sh '+str(row[1][1])+" "+str(row[1][3])+" "+str(row[1][4])).read()
+      aucs = [str(row[1][1]),str(row[1][3]),str(row[1][4])]
+      textfile = open("Results.txt", "a+")
+      
+      # Write the parameters to specific files.
+      for element in aucs:
+         textfile.write(str(element))
+      textfile.write('\n')
+      textfile.close()
+      time.sleep(5)
+      print(text.split('\n')[0].split(" ")[-1])
+      time.sleep(10)
+      print(os.popen("squeue | grep "+text.split('\n')[0].split(" ")[-1]).read())
+      
+      # Wait until the above job is not finished.
+
+      while len(os.popen("squeue | grep "+text.split('\n')[0].split(" ")[-1]).read())>0:
+         pass
+      
+      time.sleep(10)
+      
+      # Remove the log files.
+      os.system('rm -rf PSBenchmark.*')
+      
+      # Merge all the genotype files
+      text =os.popen('sbatch merge.sh').read()
+      print(text.split('\n')[0].split(" ")[-1])
+      time.sleep(10)
+      
+      # Wait for the merging.
+      while len(os.popen("squeue | grep "+text.split('\n')[0].split(" ")[-1]).read())>0:
+         pass
+      
+      
+      time.sleep(10)
+      os.system('rm -rf CEU_*')
+      os.system('rm -rf TEMP.*')
+      
+      # Call division.sh file, and it will calculate PRS.
+
+      text =os.popen('sbatch division.sh '+str(row[1][1])+" "+str(row[1][3])+" "+str(row[1][4])).read()
+      print(text.split('\n')[0].split(" ")[-1])
+      time.sleep(10)
+      while len(os.popen("squeue | grep "+text.split('\n')[0].split(" ")[-1]).read())>0:
+         pass
+      time.sleep(10)
+
+      # Remove log files and other files
+      os.system('rm -rf Merge')
+      os.system('rm -rf prs.*')
+      os.system('rm -rf {1..5}')
+
+
+
+
+Dataset generation - sample.sh
+---------------------------------
+
+.. code-block:: console
+
+   #!/bin/sh
+   #SBATCH --nodes=1
+   #SBATCH --ntasks-per-node=1
+   #SBATCH --job-name=PSBenchmark
+   #SBATCH --time=1:00:00
+   #SBATCH --mem=3000MB
+   #SBATCH --partition=prod
+   #SBATCH --account=kuin0025
+   #SBATCH --output=PSBenchmark.%A_%a.out
+   #SBATCH --error=PSBenchmark.%A_%a.err
+   #SBATCH --array=1-100
+
+ 
+   
+  
+   # Read the directory name from the file, "people.txt"
+   radius=$(head -n $SLURM_ARRAY_TASK_ID people.txt | tail -n 1)
+
+   #PASS data to PhenotypeSimulator
+   #$1 = cNrSNP
+   #$2 = Genetic Variation
+   #$3 = Heritability
+
+   Rscript sample.R $radius $1 $2 $3
+
+Dataset generation - sample.R
+------------------------------
+
+.. code-block:: console
+
+   require("PhenotypeSimulator")
+
+
+
+   args = commandArgs(trailingOnly=TRUE)
+
+   start_time <- Sys.time()
+
+   simulating <- function(risksnp,genovar, number) {
+   numberofPeople = 50
+   print(args[1])
+   filem <-paste("CEU",strtoi(args[1]),sep="_")
+   filem <-paste(filem,"gen",sep=".")
+   filem <-paste("/l/proj/kuin0025/MuhammadMuneeb/mlvsprs/finalized/rawdata",filem,sep="/")
+   genotypefile <- filem
+   genotypefile <- gsub("\\.gen","", filem)
+
+
+   genVar <- genovar
+   noiseVar <- 1 - genVar
+   totalSNPeffect <- number
+   h2s <- totalSNPeffect/genVar
+
+   phi <- 0.6
+   rho <- 0.1
+   delta <- 0.3
+   shared <- 0.8
+   independent <- 1 - shared
+
+
+
+   phenotype <- runSimulation(N = numberofPeople, P = 1, genotypefile = genotypefile,
+                              format = "oxgen", cNrSNP = risksnp, genVar = genVar, h2s = h2s,
+                              phi = 0.6, delta = 0.3, distBetaGenetic = "unif", mBetaGenetic = 0.5,
+                              sdBetaGenetic = 1, NrFixedEffects = 4, NrConfounders = c(1, 2, 1, 2), pIndependentConfounders = c(0, 1, 1, 0.5),
+                              distConfounders = c("bin", "cat_norm", "cat_unif", "norm"),
+                              probConfounders = 0.2, catConfounders = c(3, 4), pcorr = 0.8,
+                              verbose = TRUE, seed = 3000)
+
+
+
+
+   result <-paste("CEU",strtoi(args[1]),sep="_")
+   out <- savePheno(phenotype, directory=getwd(),
+                     outstring=result,
+                     format=c("csv", "snptest"), verbose=FALSE)
+
+
+   }
+   print(as.double(args[2]))
+   print(as.double(args[3]))
+   print(as.double(args[4]))
+
+   simulating(as.double(args[2]),as.double(args[3]),as.double(args[4]))
+
+
+
+
+
+
+Dataset generation - generate.py
+-----------------------------------
+
+.. code-block:: console
+
+   import os
+   import sys
+   import time
+
+   # Directory in which files will be saved.
+   filename = str(sys.argv[1])
+
+   # Place 1000 Genome + Hapmap3 (CEU, Chromosome 21) data in R/library/PhenotypeSimulator/extdata/genotypes/hapgen
+   ps = "/home/kunet.ae/ku500519/anaconda3/envs/R_test/lib/R/library/PhenotypeSimulator/extdata/genotypes/hapgen"
+   
+   # Destination folder
+   dest ="/l/proj/kuin0009/MuhammadMuneeb/mlvsprs/generatedata/rawdata"
+   
+   # Read information on this link to generate data from Hapgen2 https://mathgen.stats.ox.ac.uk/genetics_software/hapgen/hapgen2.html
+   os.system(ps+os.sep+"/hapgen2 -m "+ps+os.sep+"CEU.map -l "+ps+os.sep+"CEU.leg -h "+ps+os.sep+"CEU.haps -o "+dest+os.sep+"CEU_"+str(filename)+" -dl 43351827 0 0 0 -n 1500 0")
+   
+   # Rename the files to process them easily
+   os.rename(dest+os.sep+"CEU_"+str(filename)+".controls.gen",dest+os.sep+"CEU_"+str(filename)+".gen")
+   os.rename(dest+os.sep+"CEU_"+str(filename)+".controls.sample",dest+os.sep+"CEU_"+str(filename)+".sample")
+
+
+Dataset generation - sample.sh
+--------------------------------
+
+This file contains the code to deploy the data generation process on High-performance computing (HPC)
+
+
+.. code-block:: console
+
+   #!/bin/sh
+   #SBATCH --nodes=1
+   #SBATCH --ntasks-per-node=52
+   #SBATCH --job-name=PSBenchmark
+   #SBATCH --time=24:00:00
+   #SBATCH --mem=300000MB
+   #SBATCH --partition=prod
+   #SBATCH --account=kuin0009
+   #SBATCH --output=PSBenchmark.%A_%a.out
+   #SBATCH --error=PSBenchmark.%A_%a.err
+   #SBATCH --array=1-5
+
+
+   module purge
+   module load miniconda/3
+
+   # Read the directory name from the file, "people.txt"
+   radius=$(head -n $SLURM_ARRAY_TASK_ID people.txt | tail -n 1)
+   
+   # Generate data from HAPGEN2
+   python generate.py $radius
+   
+   #PASS data to PhenotypeSimulator
+   Rscript sample.R $radius
+
+
+
+Dataset generation - merge.py
+------------------------------
+
+.. code-block:: console
+
+   import os
+   import pandas as pd
+
+   files = os.listdir("./")
+   if not os.path.isdir("Merge"):
+   os.mkdir("Merge")
+   print(files)
+   data = pd.DataFrame()
+   gendata = pd.DataFrame()
+   count=0
+   for direc in files:
+      if "Merge" not in direc and "lib" not in direc and "rawdata" not in direc and os.path.isdir(direc) and "CEU" in direc:
+         df2 = pd.read_csv(direc+os.sep+"Ysim_snptest.sample",sep=" ")
+         sampletop = df2.head(1)
+         samplebottom = df2.tail(len(df2)-1)
+         data = pd.concat([samplebottom,data],axis=0)
+         gen = pd.read_csv(direc+os.sep+"Genotypes_snptest.gen",sep = " ",header=None)
+         frontgen = gen[[0, 1, 2, 3 , 4]]
+         gen = gen.drop(0, axis=1)
+         gen = gen.drop(1,axis=1)
+         gen = gen.drop(2,axis=1)
+         gen = gen.drop(3,axis=1)
+         gen = gen.drop(4,axis=1)
+         gendata = pd.concat([gendata,gen],axis=1,ignore_index=True)
+         print("Merged",str(count))
+         count=count+1
+   gendata = pd.concat([frontgen,gendata],axis=1)
+   gendata.to_csv("Merge"+os.sep+"Genotypes_snptest.gen",index=False,header=False,sep= " ")
+   data['ID_1'] = range(1,len(data)+1)
+   data['ID_2'] = range(1,len(data)+1)
+
+   data = pd.concat([sampletop,data],axis=0)
+   data.to_csv("Merge"+os.sep+"Ysim_snptest.sample",index=False, sep=" ")
